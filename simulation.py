@@ -239,10 +239,13 @@ ax_mall.add_patch(plt.Circle((FOOD_CX, FOOD_CY), FOOD_R,
 ax_mall.text(FOOD_CX, FOOD_CY, "FOOD\nCOURT", color='#9999dd',
              ha='center', va='center', fontsize=7, fontweight='bold', zorder=6)
 
-# Infection radius ring
-inf_ring = plt.Circle((FOOD_CX, FOOD_CY), INF_RADIUS,
-    fill=False, edgecolor='#E74C3C', lw=0.7, alpha=0.4, zorder=6)
-ax_mall.add_patch(inf_ring)
+# Infection radius rings — one pool entry per agent; only infected ones are shown
+inf_rings = []
+for _ in range(N):
+    _ring = plt.Circle((0, 0), INF_RADIUS,
+        fill=False, edgecolor='#E74C3C', lw=0.7, alpha=0.4, zorder=6, visible=False)
+    ax_mall.add_patch(_ring)
+    inf_rings.append(_ring)
 
 # Agent scatter
 scatter = ax_mall.scatter([], [], s=30, zorder=7, linewidths=0.4, edgecolors='none')
@@ -395,14 +398,16 @@ def update(frame):
     for s in [S, V, E, I, R]:
         history[s].append(counts[s])
 
-    # ── Infection-radius ring follows lead infected agent
+    # ── Infection-radius rings: one ring per infected agent
     inf_agents = [a for a in agents if a.state == I]
-    if inf_agents:
-        lead = inf_agents[0]
-        inf_ring.center = (lead.x, lead.y)
-        inf_ring.set_visible(True)
-    else:
-        inf_ring.set_visible(False)
+    for idx, ring in enumerate(inf_rings):
+        if idx < len(inf_agents):
+            ring.center = (inf_agents[idx].x, inf_agents[idx].y)
+            ring.set_visible(True)
+        else:
+            ring.set_visible(False)
+    
+
 
     # ── Text overlays
     effective_beta = BETA * SPATIAL_FACTOR
@@ -429,8 +434,8 @@ def update(frame):
         bval.set_text(str(h))
         bval.set_y(h + 1)
 
-    return ([scatter, inf_ring, day_text, re_text, inf_text, policy_box]
-            + list(ts_lines.values()) + list(bars) + bar_vals)
+    return ([scatter, day_text, re_text, inf_text, policy_box]
+            + inf_rings + list(ts_lines.values()) + list(bars) + bar_vals)
 
 
 ani = FuncAnimation(fig, update, frames=FRAMES, interval=FPS, blit=False)
