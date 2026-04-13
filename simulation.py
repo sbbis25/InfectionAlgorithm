@@ -170,273 +170,276 @@ class Agent:
                 self.state = R
 
 
-# ── Initialize agents ─────────────────────────────────────────────────────────
-agents = [Agent(i) for i in range(N)]
-agents[0].state = I
-agents[0].x = FOOD_CX + np.random.uniform(-2, 2)
-agents[0].y = FOOD_CY + np.random.uniform(-2, 2)
+if __name__ == "__main__":
 
-history = {s: [] for s in [S, V, E, I, R]}
+    # ── Initialize agents ─────────────────────────────────────────────────────────
+    agents = [Agent(i) for i in range(N)]
+    agents[0].state = I
+    agents[0].x = FOOD_CX + np.random.uniform(-2, 2)
+    agents[0].y = FOOD_CY + np.random.uniform(-2, 2)
 
-# ── Pre-compute zone-risk heatmap ─────────────────────────────────────────────
-_hm_xs = np.linspace(0, MALL_W, 80)
-_hm_ys = np.linspace(0, MALL_H, 54)
-_HMX, _HMY = np.meshgrid(_hm_xs, _hm_ys)
-_risk_grid = np.vectorize(zone_risk)(_HMX, _HMY)
-_risk_uniform = np.allclose(_risk_grid, 1.0)   # skip heatmap if all 1.0
+    history = {s: [] for s in [S, V, E, I, R]}
+
+    # ── Pre-compute zone-risk heatmap ─────────────────────────────────────────────
+    _hm_xs = np.linspace(0, MALL_W, 80)
+    _hm_ys = np.linspace(0, MALL_H, 54)
+    _HMX, _HMY = np.meshgrid(_hm_xs, _hm_ys)
+    _risk_grid = np.vectorize(zone_risk)(_HMX, _HMY)
+    _risk_uniform = np.allclose(_risk_grid, 1.0)   # skip heatmap if all 1.0
 
 
-# ── Figure layout ─────────────────────────────────────────────────────────────
-fig = plt.figure(figsize=(17, 8.5), facecolor='#0d0d1a')
-fig.suptitle("Mall Infection Spread Simulator  •  SVEIR Model  •  workshop.py active",
-             color='white', fontsize=13, fontweight='bold', y=0.98)
+    # ── Figure layout ─────────────────────────────────────────────────────────────
+    fig = plt.figure(figsize=(17, 8.5), facecolor='#0d0d1a')
+    fig.suptitle("Mall Infection Spread Simulator  •  SVEIR Model  •  workshop.py active",
+                color='white', fontsize=13, fontweight='bold', y=0.98)
 
-ax_mall = fig.add_axes([0.01, 0.04, 0.60, 0.90])
-ax_mall.set_facecolor('#1b1b2f')
-ax_mall.set_xlim(-1, MALL_W + 1)
-ax_mall.set_ylim(-1, MALL_H + 1)
-ax_mall.set_aspect('equal')
-ax_mall.axis('off')
+    ax_mall = fig.add_axes([0.01, 0.04, 0.60, 0.90])
+    ax_mall.set_facecolor('#1b1b2f')
+    ax_mall.set_xlim(-1, MALL_W + 1)
+    ax_mall.set_ylim(-1, MALL_H + 1)
+    ax_mall.set_aspect('equal')
+    ax_mall.axis('off')
 
-# Floor tiles
-for gx in range(0, int(MALL_W) + 1, 10):
-    ax_mall.axvline(gx, color='#252540', lw=0.4, zorder=0)
-for gy in range(0, int(MALL_H) + 1, 10):
-    ax_mall.axhline(gy, color='#252540', lw=0.4, zorder=0)
+    # Floor tiles
+    for gx in range(0, int(MALL_W) + 1, 10):
+        ax_mall.axvline(gx, color='#252540', lw=0.4, zorder=0)
+    for gy in range(0, int(MALL_H) + 1, 10):
+        ax_mall.axhline(gy, color='#252540', lw=0.4, zorder=0)
 
-# Zone-risk heatmap (shows zone_risk() output as a colour overlay)
-_norm = TwoSlopeNorm(vmin=0.5, vcenter=1.0, vmax=3.0)
-heatmap_img = ax_mall.imshow(
-    _risk_grid,
-    extent=[0, MALL_W, 0, MALL_H],
-    origin='lower', aspect='auto',
-    cmap='RdYlBu_r', norm=_norm,
-    alpha=0.0 if _risk_uniform else 0.30,
-    zorder=1
-)
+    # Zone-risk heatmap — only colour cells where risk differs from the 1.0 baseline
+    _norm = TwoSlopeNorm(vmin=0.5, vcenter=1.0, vmax=3.0)
+    _masked_risk = np.ma.masked_where(np.isclose(_risk_grid, 1.0), _risk_grid)
+    heatmap_img = ax_mall.imshow(
+        _masked_risk,
+        extent=[0, MALL_W, 0, MALL_H],
+        origin='lower', aspect='auto',
+        cmap='RdYlBu_r', norm=_norm,
+        alpha=0.0 if _risk_uniform else 0.45,
+        zorder=5
+    )
 
-# Mall border
-ax_mall.add_patch(patches.FancyBboxPatch(
-    (0, 0), MALL_W, MALL_H,
-    boxstyle="round,pad=0.5", linewidth=2,
-    edgecolor='#5555aa', facecolor='none', zorder=3
-))
-
-# Stores
-for (sx, sy, sw, sh, label) in STORES:
+    # Mall border
     ax_mall.add_patch(patches.FancyBboxPatch(
-        (sx, sy), sw, sh,
-        boxstyle="round,pad=0.3", linewidth=1,
-        edgecolor='#6060a0', facecolor='#14143a', zorder=4
+        (0, 0), MALL_W, MALL_H,
+        boxstyle="round,pad=0.5", linewidth=2,
+        edgecolor='#5555aa', facecolor='none', zorder=3
     ))
-    ax_mall.text(sx + sw/2, sy + sh/2, label, color='#8888cc',
-                 ha='center', va='center', fontsize=6, fontweight='bold', zorder=5)
 
-# Food court
-ax_mall.add_patch(plt.Circle((FOOD_CX, FOOD_CY), FOOD_R + 1.5, color='#1e1e45', zorder=4))
-ax_mall.add_patch(plt.Circle((FOOD_CX, FOOD_CY), FOOD_R,
-    fill=False, edgecolor='#7070cc', lw=1.8, linestyle='--', zorder=5))
-ax_mall.text(FOOD_CX, FOOD_CY, "FOOD\nCOURT", color='#9999dd',
-             ha='center', va='center', fontsize=7, fontweight='bold', zorder=6)
+    # Stores
+    for (sx, sy, sw, sh, label) in STORES:
+        ax_mall.add_patch(patches.FancyBboxPatch(
+            (sx, sy), sw, sh,
+            boxstyle="round,pad=0.3", linewidth=1,
+            edgecolor='#6060a0', facecolor='#14143a', zorder=4
+        ))
+        ax_mall.text(sx + sw/2, sy + sh/2, label, color='#8888cc',
+                    ha='center', va='center', fontsize=6, fontweight='bold', zorder=5)
 
-# Infection radius rings — one pool entry per agent; only infected ones are shown
-inf_rings = []
-for _ in range(N):
-    _ring = plt.Circle((0, 0), INF_RADIUS,
-        fill=False, edgecolor='#E74C3C', lw=0.7, alpha=0.4, zorder=6, visible=False)
-    ax_mall.add_patch(_ring)
-    inf_rings.append(_ring)
+    # Food court
+    ax_mall.add_patch(plt.Circle((FOOD_CX, FOOD_CY), FOOD_R + 1.5, color='#1e1e45', zorder=4))
+    ax_mall.add_patch(plt.Circle((FOOD_CX, FOOD_CY), FOOD_R,
+        fill=False, edgecolor='#7070cc', lw=1.8, linestyle='--', zorder=5))
+    ax_mall.text(FOOD_CX, FOOD_CY, "FOOD\nCOURT", color='#9999dd',
+                ha='center', va='center', fontsize=7, fontweight='bold', zorder=6)
 
-# Agent scatter
-scatter = ax_mall.scatter([], [], s=30, zorder=7, linewidths=0.4, edgecolors='none')
+    # Infection radius rings — one pool entry per agent; only infected ones are shown
+    inf_rings = []
+    for _ in range(N):
+        _ring = plt.Circle((0, 0), INF_RADIUS,
+            fill=False, edgecolor='#E74C3C', lw=0.7, alpha=0.4, zorder=6, visible=False)
+        ax_mall.add_patch(_ring)
+        inf_rings.append(_ring)
 
-# Overlays
-day_text = ax_mall.text(1, MALL_H - 1.5, '', color='white',
-                        fontsize=12, fontweight='bold', zorder=8, va='top')
-re_text  = ax_mall.text(1, MALL_H - 8, '', color='#aaaaff',
-                        fontsize=9, zorder=8, va='top')
-inf_text = ax_mall.text(MALL_W - 1, MALL_H - 1.5, '', color='#E74C3C',
-                        fontsize=11, fontweight='bold', zorder=8, va='top', ha='right')
+    # Agent scatter
+    scatter = ax_mall.scatter([], [], s=30, zorder=7, linewidths=0.4, edgecolors='none')
 
-# Policy banner (shown when policy_label() returns a non-empty string)
-policy_box = ax_mall.text(
-    MALL_W / 2, MALL_H / 2 + FOOD_R + 5, '',
-    color='white', fontsize=11, fontweight='bold',
-    ha='center', va='bottom', zorder=9,
-    bbox=dict(boxstyle='round,pad=0.4', facecolor='#cc2200',
-              edgecolor='#ff4422', alpha=0.0)
-)
+    # Overlays
+    day_text = ax_mall.text(1, MALL_H - 1.5, '', color='white',
+                            fontsize=12, fontweight='bold', zorder=8, va='top')
+    re_text  = ax_mall.text(1, MALL_H - 8, '', color='#aaaaff',
+                            fontsize=9, zorder=8, va='top')
+    inf_text = ax_mall.text(MALL_W - 1, MALL_H - 1.5, '', color='#E74C3C',
+                            fontsize=11, fontweight='bold', zorder=8, va='top', ha='right')
 
-# Heatmap legend note
-if not _risk_uniform:
-    ax_mall.text(MALL_W - 1, 1, 'risk heatmap: blue=low  red=high',
-                 color='#666688', fontsize=6, ha='right', va='bottom', zorder=8)
+    # Policy banner (shown when policy_label() returns a non-empty string)
+    policy_box = ax_mall.text(
+        MALL_W / 2, MALL_H / 2 + FOOD_R + 5, '',
+        color='white', fontsize=11, fontweight='bold',
+        ha='center', va='bottom', zorder=9,
+        bbox=dict(boxstyle='round,pad=0.4', facecolor='#cc2200',
+                edgecolor='#ff4422', alpha=0.0)
+    )
 
-# Agent legend
-legend_elements = [
-    Line2D([0], [0], marker='o', color='w',
-           markerfacecolor=COLORS[s], markersize=8, label=LABELS[s], linestyle='None')
-    for s in [S, V, E, I, R]
-]
-ax_mall.legend(handles=legend_elements, loc='lower right',
-               facecolor='#1b1b2f', labelcolor='white',
-               edgecolor='#5555aa', fontsize=8)
+    # Heatmap legend note
+    if not _risk_uniform:
+        ax_mall.text(MALL_W - 1, 1, 'risk heatmap: blue=low  red=high',
+                    color='#666688', fontsize=6, ha='right', va='bottom', zorder=8)
 
-
-# ── Time-series chart ─────────────────────────────────────────────────────────
-ax_ts = fig.add_axes([0.63, 0.52, 0.35, 0.42])
-ax_ts.set_facecolor('#0d0d1a')
-ax_ts.set_title(f'ODE (β×{SPATIAL_FACTOR}, E₀+{E_SEED})  vs  Agent Simulation',
-                color='white', fontsize=10, pad=6)
-ax_ts.tick_params(colors='#aaaaaa', labelsize=8)
-for sp in ax_ts.spines.values():
-    sp.set_color('#333355')
-ax_ts.set_xlabel('Day', color='#aaaaaa', fontsize=8)
-ax_ts.set_ylabel('Count', color='#aaaaaa', fontsize=8)
-ax_ts.set_xlim(0, SIM_DAYS)
-ax_ts.set_ylim(0, N)
-
-ode_arrays = {S: ode_S, V: ode_V, E: ode_E, I: ode_I, R: ode_R}
-for state in [S, V, E, I, R]:
-    ax_ts.plot(ode_t, ode_arrays[state], color=COLORS[state],
-               lw=1.2, linestyle='--', alpha=0.5, zorder=1)
-
-ts_lines = {}
-for state in [S, V, E, I, R]:
-    ln, = ax_ts.plot([], [], color=COLORS[state], lw=1.8, label=LABELS[state], zorder=2)
-    ts_lines[state] = ln
-
-legend_handles = [
-    Line2D([0], [0], color=COLORS[s], lw=1.8, label=LABELS[s]) for s in [S, V, E, I, R]
-]
-legend_handles.append(
-    Line2D([0], [0], color='white', lw=1.2, linestyle='--', alpha=0.6, label='ODE prediction')
-)
-ax_ts.legend(handles=legend_handles, loc='upper right', fontsize=6.5,
-             facecolor='#0d0d1a', labelcolor='white', edgecolor='#333355')
-
-# ── Bar chart ─────────────────────────────────────────────────────────────────
-ax_bar = fig.add_axes([0.63, 0.06, 0.35, 0.38])
-ax_bar.set_facecolor('#0d0d1a')
-ax_bar.set_title('Current Status', color='white', fontsize=10, pad=6)
-ax_bar.tick_params(colors='#aaaaaa', labelsize=8)
-ax_bar.tick_params(axis='x', rotation=25)
-for sp in ax_bar.spines.values():
-    sp.set_color('#333355')
-ax_bar.set_ylim(0, N)
-ax_bar.set_ylabel('Count', color='#aaaaaa', fontsize=8)
-
-bar_states = [S, V, E, I, R]
-bars = ax_bar.bar(
-    [LABELS[s] for s in bar_states],
-    [N * (1 - VAX_RATE), N * VAX_RATE, 0, 1, 0],
-    color=[COLORS[s] for s in bar_states],
-    edgecolor='none', width=0.6
-)
-bar_vals = [
-    ax_bar.text(bar.get_x() + bar.get_width()/2, 0, '',
-                ha='center', va='bottom', color='white', fontsize=8, fontweight='bold')
-    for bar in bars
-]
+    # Agent legend
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w',
+            markerfacecolor=COLORS[s], markersize=8, label=LABELS[s], linestyle='None')
+        for s in [S, V, E, I, R]
+    ]
+    ax_mall.legend(handles=legend_elements, loc='lower right',
+                facecolor='#1b1b2f', labelcolor='white',
+                edgecolor='#5555aa', fontsize=8)
 
 
-# ── Animation update ──────────────────────────────────────────────────────────
-frame_num = [0]
+    # ── Time-series chart ─────────────────────────────────────────────────────────
+    ax_ts = fig.add_axes([0.63, 0.52, 0.35, 0.42])
+    ax_ts.set_facecolor('#0d0d1a')
+    ax_ts.set_title(f'ODE (β×{SPATIAL_FACTOR}, E₀+{E_SEED})  vs  Agent Simulation',
+                    color='white', fontsize=10, pad=6)
+    ax_ts.tick_params(colors='#aaaaaa', labelsize=8)
+    for sp in ax_ts.spines.values():
+        sp.set_color('#333355')
+    ax_ts.set_xlabel('Day', color='#aaaaaa', fontsize=8)
+    ax_ts.set_ylabel('Count', color='#aaaaaa', fontsize=8)
+    ax_ts.set_xlim(0, SIM_DAYS)
+    ax_ts.set_ylim(0, N)
 
-def update(frame):
-    frame_num[0] += 1
-    day = frame_num[0] / FPD
+    ode_arrays = {S: ode_S, V: ode_V, E: ode_E, I: ode_I, R: ode_R}
+    for state in [S, V, E, I, R]:
+        ax_ts.plot(ode_t, ode_arrays[state], color=COLORS[state],
+                lw=1.2, linestyle='--', alpha=0.5, zorder=1)
 
-    pos        = np.array([[a.x, a.y] for a in agents])
-    states_arr = np.array([a.state   for a in agents])
-    counts     = {s: int(np.sum(states_arr == s)) for s in [S, V, E, I, R]}
+    ts_lines = {}
+    for state in [S, V, E, I, R]:
+        ln, = ax_ts.plot([], [], color=COLORS[state], lw=1.8, label=LABELS[state], zorder=2)
+        ts_lines[state] = ln
 
-    infected_pos = pos[states_arr == I]
+    legend_handles = [
+        Line2D([0], [0], color=COLORS[s], lw=1.8, label=LABELS[s]) for s in [S, V, E, I, R]
+    ]
+    legend_handles.append(
+        Line2D([0], [0], color='white', lw=1.2, linestyle='--', alpha=0.6, label='ODE prediction')
+    )
+    ax_ts.legend(handles=legend_handles, loc='upper right', fontsize=6.5,
+                facecolor='#0d0d1a', labelcolor='white', edgecolor='#333355')
 
-    for i, agent in enumerate(agents):
-        # S → V ongoing vaccination (matches ODE nu*S term)
-        if agent.state == S and np.random.random() < NU / FPD:
-            agent.state = V
+    # ── Bar chart ─────────────────────────────────────────────────────────────────
+    ax_bar = fig.add_axes([0.63, 0.06, 0.35, 0.38])
+    ax_bar.set_facecolor('#0d0d1a')
+    ax_bar.set_title('Current Status', color='white', fontsize=10, pad=6)
+    ax_bar.tick_params(colors='#aaaaaa', labelsize=8)
+    ax_bar.tick_params(axis='x', rotation=25)
+    for sp in ax_bar.spines.values():
+        sp.set_color('#333355')
+    ax_bar.set_ylim(0, N)
+    ax_bar.set_ylabel('Count', color='#aaaaaa', fontsize=8)
+
+    bar_states = [S, V, E, I, R]
+    bars = ax_bar.bar(
+        [LABELS[s] for s in bar_states],
+        [N * (1 - VAX_RATE), N * VAX_RATE, 0, 1, 0],
+        color=[COLORS[s] for s in bar_states],
+        edgecolor='none', width=0.6
+    )
+    bar_vals = [
+        ax_bar.text(bar.get_x() + bar.get_width()/2, 0, '',
+                    ha='center', va='bottom', color='white', fontsize=8, fontweight='bold')
+        for bar in bars
+    ]
+
+
+    # ── Animation update ──────────────────────────────────────────────────────────
+    frame_num = [0]
+
+    def update(frame):
+        frame_num[0] += 1
+        day = frame_num[0] / FPD
+
+        pos        = np.array([[a.x, a.y] for a in agents])
+        states_arr = np.array([a.state   for a in agents])
+        counts     = {s: int(np.sum(states_arr == s)) for s in [S, V, E, I, R]}
+
+        infected_pos = pos[states_arr == I]
+
+        for i, agent in enumerate(agents):
+            # S → V ongoing vaccination (matches ODE nu*S term)
+            if agent.state == S and np.random.random() < NU / FPD:
+                agent.state = V
+                agent.move(day, counts)
+                continue
+
+            # Infection check
+            if agent.state in (S, V) and len(infected_pos) > 0:
+                dists = np.hypot(pos[i, 0] - infected_pos[:, 0],
+                                pos[i, 1] - infected_pos[:, 1])
+                if np.any(dists < INF_RADIUS):
+                    # Nearest infected agent (for position info passed to hook)
+                    nearest = infected_pos[np.argmin(dists)]
+                    # Base probability: zone risk × vaccine protection
+                    base = TRANS_PROB * zone_risk(agent.x, agent.y)
+                    if agent.state == V:
+                        base *= (1.0 - VAX_PROT)
+                    # Workshop transmission modifier
+                    prob = transmission_modifier(
+                        agent.state, agent.x, agent.y,
+                        nearest[0], nearest[1],
+                        base, day, counts, N
+                    )
+                    if np.random.random() < float(np.clip(prob, 0.0, 1.0)):
+                        agent.state = E
+
+            agent.tick()
             agent.move(day, counts)
-            continue
 
-        # Infection check
-        if agent.state in (S, V) and len(infected_pos) > 0:
-            dists = np.hypot(pos[i, 0] - infected_pos[:, 0],
-                             pos[i, 1] - infected_pos[:, 1])
-            if np.any(dists < INF_RADIUS):
-                # Nearest infected agent (for position info passed to hook)
-                nearest = infected_pos[np.argmin(dists)]
-                # Base probability: zone risk × vaccine protection
-                base = TRANS_PROB * zone_risk(agent.x, agent.y)
-                if agent.state == V:
-                    base *= (1.0 - VAX_PROT)
-                # Workshop transmission modifier
-                prob = transmission_modifier(
-                    agent.state, agent.x, agent.y,
-                    nearest[0], nearest[1],
-                    base, day, counts, N
-                )
-                if np.random.random() < float(np.clip(prob, 0.0, 1.0)):
-                    agent.state = E
+        # ── Scatter update
+        xs     = [a.x for a in agents]
+        ys     = [a.y for a in agents]
+        colors = [COLORS[a.state] for a in agents]
+        sizes  = [SIZES[a.state]  for a in agents]
+        scatter.set_offsets(np.c_[xs, ys])
+        scatter.set_color(colors)
+        scatter.set_sizes(sizes)
 
-        agent.tick()
-        agent.move(day, counts)
+        # Re-read counts from updated states
+        states_arr = np.array([a.state for a in agents])
+        counts = {s: int(np.sum(states_arr == s)) for s in [S, V, E, I, R]}
+        for s in [S, V, E, I, R]:
+            history[s].append(counts[s])
 
-    # ── Scatter update
-    xs     = [a.x for a in agents]
-    ys     = [a.y for a in agents]
-    colors = [COLORS[a.state] for a in agents]
-    sizes  = [SIZES[a.state]  for a in agents]
-    scatter.set_offsets(np.c_[xs, ys])
-    scatter.set_color(colors)
-    scatter.set_sizes(sizes)
-
-    # Re-read counts from updated states
-    states_arr = np.array([a.state for a in agents])
-    counts = {s: int(np.sum(states_arr == s)) for s in [S, V, E, I, R]}
-    for s in [S, V, E, I, R]:
-        history[s].append(counts[s])
-
-    # ── Infection-radius rings: one ring per infected agent
-    inf_agents = [a for a in agents if a.state == I]
-    for idx, ring in enumerate(inf_rings):
-        if idx < len(inf_agents):
-            ring.center = (inf_agents[idx].x, inf_agents[idx].y)
-            ring.set_visible(True)
-        else:
-            ring.set_visible(False)
-    
+        # ── Infection-radius rings: one ring per infected agent
+        inf_agents = [a for a in agents if a.state == I]
+        for idx, ring in enumerate(inf_rings):
+            if idx < len(inf_agents):
+                ring.center = (inf_agents[idx].x, inf_agents[idx].y)
+                ring.set_visible(True)
+            else:
+                ring.set_visible(False)
+        
 
 
-    # ── Text overlays
-    effective_beta = BETA * SPATIAL_FACTOR
-    Re = (effective_beta / GAMMA) * (counts[S] / N)
-    day_text.set_text(f'Day {int(day)}')
-    re_text.set_text(f'Rₑ = {Re:.2f}')
-    re_text.set_color('#ff6666' if Re > 1 else '#66ff66')
-    inf_text.set_text(f'Active: {counts[I] + counts[E]}')
+        # ── Text overlays
+        effective_beta = BETA * SPATIAL_FACTOR
+        Re = (effective_beta / GAMMA) * (counts[S] / N)
+        day_text.set_text(f'Day {int(day)}')
+        re_text.set_text(f'Rₑ = {Re:.2f}')
+        re_text.set_color('#ff6666' if Re > 1 else '#66ff66')
+        inf_text.set_text(f'Active: {counts[I] + counts[E]}')
 
-    # ── Policy banner
-    label = policy_label(day, counts, N)
-    policy_box.set_text(label)
-    policy_box.get_bbox_patch().set_alpha(0.85 if label else 0.0)
+        # ── Policy banner
+        label = policy_label(day, counts, N)
+        policy_box.set_text(label)
+        policy_box.get_bbox_patch().set_alpha(0.85 if label else 0.0)
 
-    # ── Time-series
-    x_data = [f / FPD for f in range(len(history[S]))]
-    for s in [S, V, E, I, R]:
-        ts_lines[s].set_data(x_data, history[s])
+        # ── Time-series
+        x_data = [f / FPD for f in range(len(history[S]))]
+        for s in [S, V, E, I, R]:
+            ts_lines[s].set_data(x_data, history[s])
 
-    # ── Bar chart
-    for bar, bval, s in zip(bars, bar_vals, bar_states):
-        h = counts[s]
-        bar.set_height(h)
-        bval.set_text(str(h))
-        bval.set_y(h + 1)
+        # ── Bar chart
+        for bar, bval, s in zip(bars, bar_vals, bar_states):
+            h = counts[s]
+            bar.set_height(h)
+            bval.set_text(str(h))
+            bval.set_y(h + 1)
 
-    return ([scatter, day_text, re_text, inf_text, policy_box]
-            + inf_rings + list(ts_lines.values()) + list(bars) + bar_vals)
+        return ([scatter, day_text, re_text, inf_text, policy_box]
+                + inf_rings + list(ts_lines.values()) + list(bars) + bar_vals)
 
 
-ani = FuncAnimation(fig, update, frames=FRAMES, interval=FPS, blit=False)
-plt.show()
+    ani = FuncAnimation(fig, update, frames=FRAMES, interval=FPS, blit=False)
+    plt.show()

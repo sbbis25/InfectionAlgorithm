@@ -15,6 +15,17 @@ Mall layout   : 120 units wide × 80 units tall
 Food court    : centre (60, 40), radius 9
 Agent states  : 0 = Susceptible   1 = Vaccinated   2 = Exposed
                 3 = Infected      4 = Recovered
+
+(store x, store y, store width, store height, name) - bottom-left anchored
+STORES = [
+    (2,   4,  16, 14, "ZARA"),   (21,  4, 16, 14, "H&M"),
+    (40,  4,  16, 14, "NIKE"),   (59,  4, 16, 14, "APPLE"),
+    (78,  4,  16, 14, "GUCCI"),  (98,  4, 16, 14, "BOOKS"),
+    (2,  62,  16, 14, "CINEMA"), (21, 62, 16, 14, "GYM"),
+    (40, 62,  16, 14, "GAMES"),  (59, 62, 16, 14, "SPORT"),
+    (78, 62,  16, 14, "TOYS"),   (98, 62, 16, 14, "TECH"),
+    (2,  30,  12, 20, "CAFE"),   (106, 30, 12, 20, "SPA"),
+]
 """
 
 import numpy as np
